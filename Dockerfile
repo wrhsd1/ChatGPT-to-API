@@ -1,36 +1,23 @@
 # Use the official Golang image as the builder
 FROM golang:1.20.3-alpine as builder
 
-# Enable CGO to use C libraries (set to 0 to disable it)
-# We set it to 0 to build a fully static binary for our final image
-ENV CGO_ENABLED=0
-
-# Set the working directory
-WORKDIR /app
-
-# Copy the Go Modules manifests (go.mod and go.sum files)
-COPY go.mod go.sum ./
-
-# Download the dependencies
-RUN go mod download
-
-# Copy the source code
+WORKDIR /go/src/app
 COPY . .
 
-# Build the Go application and output the binary to /app/ChatGPT-Proxy-V4
-RUN go build -o /app/ChatGPT-To-API .
+# Clone the specific repository and build the application.
+RUN git clone https://github.com/xqdoo00o/ChatGPT-to-API /go/src/app \
+    && cd /go/src/app \
+    && go build -o freechatgpt
 
-# Use a scratch image as the final distroless image
-FROM scratch
+# Use a Docker multi-stage build to create a lean production image.
+# https://docs.docker.com/develop/develop-images/multistage-build/
+FROM debian:buster-slim
 
-# Set the working directory
-WORKDIR /app
+# Copy the binary to the production image from the builder stage.
+COPY --from=builder /go/src/app/freechatgpt /freechatgpt
 
-# Copy the built Go binary from the builder stage
-COPY --from=builder /app/ChatGPT-To-API /app/ChatGPT-To-API
+# Run the freechatgpt command by default when the container starts.
+ENTRYPOINT ["/freechatgpt"]
 
-# Expose the port where the application is running
+# Document that the service listens on port 8080.
 EXPOSE 8080
-
-# Start the application
-CMD [ "./freechatgpt" ]
