@@ -1,27 +1,30 @@
-# Use a newer official Golang image to create a build artifact.
-# This is based on Debian and sets the GOPATH to /go.
-# Make sure to use a version that includes the crypto/ecdh package, such as Go 1.17 or newer.
-FROM golang:1.17 as builder
+# Use the official Golang image as the builder
+FROM golang:1.20.3-alpine as builder
 
-# Install git.
-RUN apt-get update && apt-get install -y git
+# Enable CGO to use C libraries (set to 0 to disable it)
+ENV CGO_ENABLED=0
 
-# Clone the specific repository into an empty directory.
-WORKDIR /go/src/app
-RUN git clone https://github.com/xqdoo00o/ChatGPT-to-API . \
-    && go build -o freechatgpt
+# Set the working directory inside the builder stage
+WORKDIR /app
 
-# Use a Docker multi-stage build to create a lean production image.
-# https://docs.docker.com/develop/develop-images/multistage-build/
-FROM debian:buster-slim
+# Clone the repository
+RUN apk add --no-cache git && \
+    git clone https://github.com/xqdoo00o/ChatGPT-to-API .
 
-# Copy the binary to the production image from the builder stage.
-COPY --from=builder /go/src/app/freechatgpt /freechatgpt
+# Build the Go application and output the binary to /app/freechatgpt
+RUN go build -o /app/freechatgpt .
 
-# Optionally, copy the .env file if it exists in the repository.
+# Use a scratch image as the final distroless image
+FROM scratch
 
-# Run the freechatgpt command by default when the container starts.
-ENTRYPOINT ["/freechatgpt"]
+# Set the working directory in the final image
+WORKDIR /app
 
-# Document that the service listens on port 8080.
+# Copy the built Go binary from the builder stage
+COPY --from=builder /app/freechatgpt /app/freechatgpt
+
+# Expose the port where the application is running
 EXPOSE 8080
+
+# Start the application
+CMD [ "./freechatgpt" ]
