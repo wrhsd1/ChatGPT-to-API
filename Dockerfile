@@ -1,5 +1,5 @@
 # Use the official Golang image as the builder
-FROM golang:1.20.3-alpine as builder
+FROM golang:1.18 as builder
 
 RUN apt-get update && apt-get install -y git
 
